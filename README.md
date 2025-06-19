@@ -44,11 +44,13 @@ bash git clone https://github.com/JimWang665/storage.git cd storage
 ```
 bash ./mvnw clean package
 ```
-3. Run the application:
+3. Create an MySQL server with Docker Desktop. Change the application.properties in accordance to your docker config.
+   
+4. Run the application:
 ```
 bash java -jar target/storage-0.0.1-SNAPSHOT.jar
 ```
-4. Open your browser and go to:
+5. Open your browser and go to:
 ```
 http://localhost:8080
 ```
