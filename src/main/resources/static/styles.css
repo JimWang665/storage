@@ -1,0 +1,182 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f9f9f9;
+    color: #212529;
+    margin: 0;
+    padding: 0;
+}
+
+.storageContainer {
+    max-width: 1200px;
+    margin: 30px auto;
+    background-color: #ffffff;
+    padding: 10px;
+    border-radius: 12px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.storageContainer h1 {
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #343a40;
+    font-size: 18px;
+}
+
+.inputSignpost {
+    font-weight: bold;
+    color: #495057;
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.global {
+    margin: 4px 4px 0 0;
+    padding: 4px 8px;
+    font-size: 12px;
+    border-radius: 6px;
+}
+
+#itemTable {
+    margin-top: 10px;
+    border-collapse: collapse;
+}
+
+#itemTable th, #itemTable td {
+    text-align: center;
+    vertical-align: middle;
+    padding: 2px 4px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+#itemTable th {
+    background-color: #e9ecef;
+}
+
+.editButtonRow{
+    width: 50px;
+    margin: 1px;
+    padding: 1px;
+    border: #53de47;
+    border-radius: 10px;
+    font-size: 10px;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    background-color: #0ab62c !important;
+}
+.editButtonRow:hover {
+    background-color: #53de47 !important;
+    transform: scale(1.05);
+}
+.deleteButtonRow{
+    width: 50px;
+    margin: 1px;
+    padding: 1px;
+    border: #ec6a77;
+    border-radius: 10px;
+    font-size: 10px;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    background-color: #c51224 !important;
+}
+.deleteButtonRow:hover {
+    background-color: #ec6a77 !important;
+    transform: scale(1.05);
+}
+.infoButtonRow {
+    width: 50px;
+    margin: 1px;
+    padding: 1px;
+    border: #2596cf;
+    border-radius: 10px;
+    font-size: 10px;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    background-color: #0d5bd1 !important;
+}
+.infoButtonRow:hover {
+    background-color: #2596cf !important;
+    transform: scale(1.05);
+}
+
+.minimized {
+    display: none !important;
+    max-height: 0px;
+}
+
+.editCursor {
+    display: block;
+    font-weight: bold;
+    margin-top: 4px;
+    color: #343a40;
+    font-size: 12px;
+}
+
+.editInput {
+    width: 100%;
+    margin-bottom: 6px;
+    padding: 4px 6px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+#saveEditButton {
+    margin-top: 6px;
+    width: 100%;
+    background-color: #0d6efd;
+    color: white;
+    border: none;
+    padding: 6px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+#saveEditButton:hover {
+    background-color: #0b5ed7;
+}
+
+.modal-content {
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+#itemTable tr {
+    height: 16px;
+}
+
+.searchInput, .editInput {
+    padding: 4px 6px;
+    font-size: 12px;
+}
+
+.global {
+    padding: 4px 8px;
+    font-size: 12px;
+    margin: 4px 4px 0 0;
+}
+
+#saveEditButton {
+    padding: 6px;
+    font-size: 12px;
+}
+
+.storageContainer {
+    padding: 10px;
+}
+
+
+.globalCheckbox {
+    display: inline-block;
+    cursor: pointer;
+    margin-left: 5px;
+    margin-right: 0;
+    height: 0.75em;
+    width: 0.75em;
+    top: 100px;
+}
