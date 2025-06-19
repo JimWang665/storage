@@ -37,7 +37,7 @@ storage/
 
 1. Clone the repository:
 ```
-bash git clone https://github.com/yourname/storage.git cd storage
+bash git clone https://github.com/JimWang665/storage.git cd storage
 ```
 
 2. Build the project:
