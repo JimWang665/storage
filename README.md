@@ -31,6 +31,7 @@ storage/
 ### Prerequisites:
 - Java 17+
 - Maven
+- Docker (either using other's portal or use docker desktop to run your own)
 - Git (optional)
 
 ### Steps:
