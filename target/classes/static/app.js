@@ -1,46 +1,82 @@
-document.addEventListener("DOMContentLoaded", async function(){
+document.addEventListener("DOMContentLoaded", function () {
+    // ---------------------------------------------------------------------------------
+    // Element references: looked up once, here, so every helper below can see them.
+    // ---------------------------------------------------------------------------------
+    const $ = (id) => document.getElementById(id);
+
+    // search bar & add bar inputs
+    const idInput = $("idInput");
+    const statusInput = $("statusInput");
+    const abnormalityInput = $("abnormalityInput");
+    const customerNameInput = $("customerNameInput");
+    const originInput = $("originInput");
+    const destinationInput = $("destinationInput");
+
+    // global action buttons
+    const searchButton = $("searchButton");
+    const clearButton = $("clearButton");
+    const addButton = $("addButton");
+    const deleteButton = $("deleteButton");
+    const deleteAlertCheckbox = $("deleteAlertCheckbox");
+    const deleteAlertButton = $("deleteAlertButton");
+    const editAlertCheckbox = $("editAlertCheckbox");
+    const editAlertButton = $("editAlertButton");
+
+    // table body (data rows only: the header row lives in <thead> and is never touched)
+    const itemBody = $("itemBody");
+
+    // edit modal
+    const statusEditInput = $("statusEditInput");
+    const abnormalityEditInput = $("abnormalityEditInput");
+    const customerNameEditInput = $("customerNameEditInput");
+    const originEditInput = $("originEditInput");
+    const destinationEditInput = $("destinationEditInput");
+    const saveEditButton = $("saveEditButton");
+    const editModalCloseButton = $("editModalCloseButton");
+
+    const errorBanner = $("errorBanner");
+
     const state = {
         itemInEdit: null
+    };
+    let errorTimer = null;
+
+    // ---------------------------------------------------------------------------------
+    // Networking helpers
+    // ---------------------------------------------------------------------------------
+
+    function showError(message) {
+        errorBanner.textContent = message;
+        errorBanner.classList.remove("d-none");
+        clearTimeout(errorTimer);
+        errorTimer = setTimeout(() => errorBanner.classList.add("d-none"), 8000);
     }
-    window.onload = async function(){
 
-        loadItems();
+    /**
+     * fetch() wrapper: returns the parsed JSON body (or null for an empty body) and THROWS an Error
+     * with a readable message when the server answers with a non-2xx status. Callers use try/catch,
+     * so a failed request can never leave the screen out of sync with the database.
+     */
+    async function api(url, options) {
+        const response = await fetch(url, options);
+        const text = await response.text();
+        let body = null;
+        if (text) {
+            try { body = JSON.parse(text); } catch (e) { body = null; }
+        }
+        if (!response.ok) {
+            const message = (body && (body.error || body.message)) || `Request failed with status ${response.status}`;
+            throw new Error(message);
+        }
+        return body;
+    }
 
-        // search bar&add bar inputs
-        const idInput = document.getElementById("idInput");
-        const statusInput = document.getElementById("statusInput");
-        const abnormalityInput = document.getElementById("abnormalityInput");
-        const customerNameInput = document.getElementById("customerNameInput");
-        const originInput = document.getElementById("originInput");
-        const destinationInput = document.getElementById("destinationInput");
+    // ---------------------------------------------------------------------------------
+    // Search / clear
+    // ---------------------------------------------------------------------------------
 
-        // global action buttons
-        const searchButton = document.getElementById("searchButton");
-        const clearButton = document.getElementById("clearButton");
-        const addButton = document.getElementById("addButton");
-        const deleteButton = document.getElementById("deleteButton");
-        const deleteAlertCheckbox = document.getElementById("deleteAlertCheckbox");
-        const deleteAlertButton = document.getElementById("deleteAlertButton");
-        const editAlertCheckbox = document.getElementById("editAlertCheckbox");
-        const editAlertButton = document.getElementById("editAlertButton");
-
-        // table
-        const itemTable = document.getElementById("itemTable");
-
-        // modals
-        const editModal = document.getElementById("editModal");
-
-        const statusEditInput = document.getElementById("statusEditInput");
-        const abnormalityEditInput = document.getElementById("abnormalityEditInput");
-        const customerNameEditInput = document.getElementById("customerNameEditInput");
-        const originEditInput = document.getElementById("originEditInput");
-        const destinationEditInput = document.getElementById("destinationEditInput");
-
-        const saveEditButton = document.getElementById("saveEditButton");
-
-        // search button
-        searchButton.addEventListener("click", async () => {
-            unminimizeAll();
+    searchButton.addEventListener("click", async () => {
+        try {
             const params = new URLSearchParams({
                 id: idInput.value,
                 status: statusInput.value,
@@ -49,201 +85,215 @@ document.addEventListener("DOMContentLoaded", async function(){
                 origin: originInput.value,
                 destination: destinationInput.value
             });
-            const response = await fetch(`/api/searchItem?${params}`);
-            
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-
-
-            const items = await response.json();
-
-            for (const item of items){
-                const row = document.getElementById(`row${item.id}`).classList.add("minimized");
-                console.log("Searching item: " + item);
+            // The server returns the items that MATCH; every other row gets hidden.
+            const matches = await api(`/api/searchItem?${params}`);
+            const matchIds = new Set(matches.map((item) => item.id));
+            for (const row of itemBody.rows) {
+                row.classList.toggle("minimized", !matchIds.has(Number(row.dataset.id)));
             }
-            console.log("Count of items filtered out: " + items.length);
-            console.log("Finished searching!");
-        });
+        } catch (e) {
+            showError(`Search failed: ${e.message}`);
+        }
+    });
 
-        // clear button
-        clearButton.addEventListener("click", async function(){
-            clearAllInputs();
-            unminimizeAll();
-            console.log("Cleared!")
-        });
+    clearButton.addEventListener("click", () => {
+        clearAllInputs();
+        unminimizeAll();
+    });
 
-        // add button
-        addButton.addEventListener("click", async function(){
-            // input filters
-            if (idInput.value != ""){
-                alert("Do not enter an ID for creating new item: ID is self generated!");
-                return;
-            }
-            if (statusInput.value != ""){
-                alert("Do not enter a status for creating new item: status is NEW by default!");
-                return;
-            }
-            if (abnormalityInput.value != ""){
-                alert("Do not enter an abnormality for creating new item: abnormality is false by default!");
-            }
-            if (customerNameInput.value.trim() === "" || originInput.value.trim() === "" || destinationInput.value.trim() === ""){
-                alert("Customer name, origin, and destination cannot be empty when creating new item!");
-                return;
-            }
-            // creating row
-            let itemAdded = null;
-            const row = document.createElement("tr");
+    // ---------------------------------------------------------------------------------
+    // Add
+    // ---------------------------------------------------------------------------------
+
+    addButton.addEventListener("click", async () => {
+        // input filters
+        if (idInput.value !== "") {
+            alert("Do not enter an ID for creating new item: ID is self generated!");
+            return;
+        }
+        if (statusInput.value !== "") {
+            alert("Do not enter a status for creating new item: status is NEW by default!");
+            return;
+        }
+        if (abnormalityInput.value !== "") {
+            alert("Do not enter an abnormality for creating new item: abnormality is false by default!");
+            return;
+        }
+        if (customerNameInput.value.trim() === "" || originInput.value.trim() === "" || destinationInput.value.trim() === "") {
+            alert("Customer name, origin, and destination cannot be empty when creating new item!");
+            return;
+        }
+        try {
             const params = new URLSearchParams({
                 customerName: customerNameInput.value,
                 origin: originInput.value,
                 destination: destinationInput.value
             });
-            const response = await fetch(`/api/addItem?${params}`, {
-                method: "POST"
-            });
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-
-            // this item is the item object added
-            itemAdded = await response.json();
-            // now front end: add the tr element
-            rowCreationHelper(itemAdded);
-
-            // clear in the end
+            const itemAdded = await api(`/api/addItem?${params}`, { method: "POST" });
+            appendRow(itemAdded);
             clearAllInputs();
-            console.log("Item with id: " + itemAdded.id + " has been added!");
-        });
+        } catch (e) {
+            showError(`Could not add the item: ${e.message}`);
+        }
+    });
 
-        // save button in edit modal
-        saveEditButton.addEventListener("click", async function(){
-            if (!editAlertCheckbox.checked){
-                const confirmation = confirm("Are you sure you want to save the edit? Past data would be" + 
-                    " replaced and would be lost forever.")
-                if (!confirmation){return;}
-            }
+    // ---------------------------------------------------------------------------------
+    // Edit (save button inside the modal)
+    // ---------------------------------------------------------------------------------
 
-            if (!state.itemInEdit){console.error("item in edit is NULL!")}
-
+    saveEditButton.addEventListener("click", async () => {
+        if (!state.itemInEdit) {
+            showError("No item is being edited. Close this window and click Edit again.");
+            return;
+        }
+        if (customerNameEditInput.value.trim() === "" || originEditInput.value.trim() === "" || destinationEditInput.value.trim() === "") {
+            alert("Customer name, origin, and destination cannot be empty!");
+            return;
+        }
+        if (!editAlertCheckbox.checked) {
+            const confirmation = confirm("Are you sure you want to save the edit? Past data would be" +
+                " replaced and would be lost forever.");
+            if (!confirmation) { return; }
+        }
+        try {
             const params = new URLSearchParams({
-                status: statusEditInput.value, 
-                abnormality: (abnormalityEditInput.value === 'true'), 
+                status: statusEditInput.value,
+                abnormality: (abnormalityEditInput.value === "true"),
                 customerName: customerNameEditInput.value,
                 origin: originEditInput.value,
                 destination: destinationEditInput.value,
                 id: state.itemInEdit.id
             });
-
-
-            const response = await fetch(`/api/setItem?${params}`, {
-                method: "PATCH"
-            });
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-            const data = await response.json();
-            state.itemInEdit = data;
-            const i = state.itemInEdit;
-            // change in table
-            const row = document.getElementById(`row${data.id}`);
-            const cells = row.cells;
-
-            cells[1].textContent = statusNormalize(i.status); 
-            cells[2].textContent = i.abnormality.toString();
-            cells[3].textContent = i.customerName;
-            cells[4].textContent = i.origin;
-            cells[5].textContent = i.destination;
-
-
-            // finally clear
+            const updated = await api(`/api/setItem?${params}`, { method: "PATCH" });
+            const row = itemBody.querySelector(`tr[data-id="${updated.id}"]`);
+            if (row) { fillRow(row, updated); }
+            state.itemInEdit = null;
             clearAllEditInputs();
-            // close the editing modal
-            document.getElementById("modalCloseButton").click();
-        });
+            editModalCloseButton.click();
+        } catch (e) {
+            showError(`Could not save the edit: ${e.message}`);
+        }
+    });
 
-        deleteButton.addEventListener("click", async function(){
-            // confirm
-            const confirmation = confirm("Are you sure you want to delete all "
-                + "items from the storage? This action is extremely dangerous and "
-                + "could not be withdrawn!");
-            if (!confirmation){return;}
-            const confirmTwice = confirm("Are you sure you want to delete everything?");
-            if (!confirmTwice){return;}
-            const response = await fetch("/api/deleteAll",{
-                method: "DELETE"
-            });
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-            
-            for (const row of document.querySelectorAll("tr")){
-                row.remove();
-            }
-            console.log("Everything is deleted!")
-        })
+    // ---------------------------------------------------------------------------------
+    // Delete all
+    // ---------------------------------------------------------------------------------
 
-        /// the final four buttons
-        deleteAlertButton.addEventListener("click", function () {
-            deleteAlertCheckbox.checked = !deleteAlertCheckbox.checked;
-        });
+    deleteButton.addEventListener("click", async () => {
+        const confirmation = confirm("Are you sure you want to delete all "
+            + "items from the storage? This action is extremely dangerous and "
+            + "could not be withdrawn!");
+        if (!confirmation) { return; }
+        const confirmTwice = confirm("Are you sure you want to delete everything?");
+        if (!confirmTwice) { return; }
+        try {
+            await api("/api/deleteAll", { method: "DELETE" });
+            itemBody.replaceChildren(); // removes data rows only; the header stays
+        } catch (e) {
+            showError(`Could not delete everything: ${e.message}`);
+        }
+    });
 
-        deleteAlertCheckbox.addEventListener("click", function(event){
-            event.stopPropagation();
-        });
+    // ---------------------------------------------------------------------------------
+    // The "without alert" toggle buttons
+    // ---------------------------------------------------------------------------------
 
-        editAlertButton.addEventListener("click", function(){
-            editAlertCheckbox.checked = !editAlertCheckbox.checked;
-        });
-        
-        editAlertCheckbox.addEventListener("click", function(event){
-            event.stopPropagation();
-        });
-        /// the final four buttons
+    deleteAlertButton.addEventListener("click", () => {
+        deleteAlertCheckbox.checked = !deleteAlertCheckbox.checked;
+    });
+    deleteAlertCheckbox.addEventListener("click", (event) => event.stopPropagation());
 
-        // this helper reloads all items at login. it's within the windows.onload cuz it 
-        // has to access all variables.
+    editAlertButton.addEventListener("click", () => {
+        editAlertCheckbox.checked = !editAlertCheckbox.checked;
+    });
+    editAlertCheckbox.addEventListener("click", (event) => event.stopPropagation());
 
-        async function loadItems(){
-            const response = await fetch("/api/getAllItems");
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-            const data = await response.json();
-            for (const item of data){
-                rowCreationHelper(item);
-                console.log("Reloaded row with ID " + item.id);
-            }
-            console.log("Reload finished!");
-            // last catchups: just load the information guide.
-            document.getElementById("guideText").innerHTML = `
-                <h5>Adding Items</h5>
-                <p>
-                    To add an item, fill in the following input boxes: <strong>Customer Name</strong>, 
-                    <strong>Origin</strong>, and <strong>Destination</strong>. Do not enter or select 
-                    anything in the other three input boxes, as they are auto-generated. Then click the 
-                    <strong>'Add Item'</strong> button.
-                </p>
+    // ---------------------------------------------------------------------------------
+    // Table rows
+    // ---------------------------------------------------------------------------------
 
-                <h5>Searching</h5>
-                <p>
-                    To search for items, enter your criteria into any or all input boxes and click 
-                    the <strong>'Search'</strong> button. Leaving a field empty means the system won't filter 
-                    based on that attribute.
-                </p>
+    function statusNormalize(string) {
+        return string
+            .toLowerCase()
+            .replace(/_/g, " ")
+            .split(" ")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
+    }
 
-                <h5>Clearing Inputs</h5>
-                <p>
-                    Click the <strong>'Clear All'</strong> button to reset all inputs and remove search filters.
-                </p>
+    /** Writes an item's values into the first six cells of its row (textContent only: no HTML injection). */
+    function fillRow(row, item) {
+        row.cells[0].textContent = String(item.id);
+        row.cells[1].textContent = statusNormalize(item.status);
+        row.cells[2].textContent = String(item.abnormality);
+        row.cells[3].textContent = item.customerName;
+        row.cells[4].textContent = item.origin;
+        row.cells[5].textContent = item.destination;
+    }
 
-                <h5>Managing Items</h5>
-                <p>
-                    Each item in the table comes with three actions:
-                </p>
-                <ul>
-                    <li><strong>Edit</strong>: Click to open a pop-up window. Make changes and click <strong>'Save'</strong>.</li>
-                    <li><strong>Delete</strong>: Click to permanently remove the item.</li>
-                </ul>
-            `;
+    function makeButton(label, className) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = className;
+        button.textContent = label;
+        return button;
+    }
 
-            console.log("Guide text prepared!");
+    function appendRow(item) {
+        const row = document.createElement("tr");
+        row.id = `row${item.id}`;
+        row.dataset.id = String(item.id);
+        for (let i = 0; i < 6; i++) { row.insertCell(); }
+        fillRow(row, item);
+
+        const actionCell = row.insertCell();
+        const editButton = makeButton("Edit", "editButtonRow");
+        // Bootstrap opens the modal through these attributes.
+        editButton.setAttribute("data-bs-toggle", "modal");
+        editButton.setAttribute("data-bs-target", "#editModal");
+        const removeButton = makeButton("Delete", "deleteButtonRow");
+        actionCell.append(editButton, " ", removeButton);
+
+        editButton.addEventListener("click", () => openEditor(item.id));
+        removeButton.addEventListener("click", () => deleteRow(row, item.id));
+
+        itemBody.appendChild(row);
+    }
+
+    async function openEditor(id) {
+        try {
+            // Fetch the item again so the modal shows what is stored now, not a stale copy.
+            const data = await api(`/api/getItemById?id=${id}`);
+            state.itemInEdit = data;
+            statusEditInput.value = data.status;
+            abnormalityEditInput.value = String(data.abnormality);
+            customerNameEditInput.value = data.customerName;
+            originEditInput.value = data.origin;
+            destinationEditInput.value = data.destination;
+        } catch (e) {
+            state.itemInEdit = null;
+            showError(`Could not load the item: ${e.message}`);
         }
     }
 
-    /******************************************************************************************/
-    // helpers
-    function clearAllInputs(){
+    async function deleteRow(row, id) {
+        if (!deleteAlertCheckbox.checked) {
+            const confirmation = confirm("Are you sure you want to delete this item? This action cannot be recalled.");
+            if (!confirmation) { return; }
+        }
+        try {
+            await api(`/api/deleteItemById?${new URLSearchParams({ id })}`, { method: "DELETE" });
+            row.remove(); // only after the server confirmed the delete
+        } catch (e) {
+            showError(`Could not delete the item: ${e.message}`);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------
+    // Small helpers
+    // ---------------------------------------------------------------------------------
+
+    function clearAllInputs() {
         idInput.value = "";
         statusInput.value = "";
         abnormalityInput.value = "";
@@ -252,130 +302,32 @@ document.addEventListener("DOMContentLoaded", async function(){
         destinationInput.value = "";
     }
 
-    function clearAllEditInputs(){
+    function clearAllEditInputs() {
         statusEditInput.value = "NEW";
         abnormalityEditInput.value = "false";
         customerNameEditInput.value = "";
         originEditInput.value = "";
         destinationEditInput.value = "";
     }
-    
-    function unminimizeAll(){
-        const rows = document.querySelectorAll("tr");
-        console.log(`Resetting ${rows.length} rows...`)
-        for (const row of rows){
+
+    function unminimizeAll() {
+        for (const row of itemBody.rows) {
             row.classList.remove("minimized");
         }
     }
 
-    function statusNormalize(string) {
-        return string
-            .toLowerCase() // Make the whole string lowercase
-            .replace(/_/g, ' ') // Replace all underscores with spaces
-            .split(' ') // Split into words
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize first letter of each word
-            .join(' '); // Rejoin into a single string
+    // ---------------------------------------------------------------------------------
+    // Initial load
+    // ---------------------------------------------------------------------------------
+
+    async function loadItems() {
+        try {
+            const items = await api("/api/getAllItems");
+            for (const item of items) { appendRow(item); }
+        } catch (e) {
+            showError(`Could not load items: ${e.message}`);
+        }
     }
 
-
-    async function rowCreationHelper(itemAdded){
-        const row = document.createElement("tr");
-        row.id = `row${itemAdded.id}`;
-        // row.item = itemAdded;
-
-        const cellId = row.insertCell();
-        cellId.textContent = itemAdded.id.toString();
-
-        const cellStatus = row.insertCell();
-        cellStatus.textContent = statusNormalize(itemAdded.status);
-        
-        const cellAbnormality = row.insertCell();
-        cellAbnormality.textContent = itemAdded.abnormality.toString();
-
-        const cellCustomerName = row.insertCell();
-        cellCustomerName.textContent = itemAdded.customerName;
-
-        const cellOrigin = row.insertCell();
-        cellOrigin.textContent = itemAdded.origin;
-
-        const cellDestination = row.insertCell();
-        cellDestination.textContent = itemAdded.destination;
-
-        const cellAction = row.insertCell();
-        // user a helper here so that I can wait for the initialization to finish
-        await cellActionHelper(cellAction, itemAdded);
-
-        // append
-        itemTable.appendChild(row);
-        // this helper adds action listeners to the action buttons
-        actionButtonListenerHelper(
-            document.getElementById(`editButton${itemAdded.id}`),
-            document.getElementById(`deleteButton${itemAdded.id}`),
-            document.getElementById(`infoButton${itemAdded.id}`),
-            itemAdded
-        );
-    }
-    /*
-    this one is just setting up html of cellaction.
-    */
-    function cellActionHelper(cellAction, itemAdded){
-        cellAction.innerHTML = `
-        <button type="button" class="editButtonRow" id="editButton${itemAdded.id}" data-bs-toggle="modal" data-bs-target="#editModal">Edit</button>
-        <button type="button" class="deleteButtonRow" id="deleteButton${itemAdded.id}">Delete</button>
-        <button type="button" class="infoButtonRow" id="infoButton${itemAdded.id}">More</button>
-        `;
-    }
-
-    /*
-    This helper adds action listeners.
-    */
-    function actionButtonListenerHelper(editB,deleteB,infoB,item){
-        //edit button
-        editB.addEventListener("click", async function(){
-            // open modal already done above
-            /*
-            have to get the item again cuz all attributes are renewed while item is not 
-            synchronized to the update. but fortunately the id will not be updated so I 
-            can get the item from the id again... this is extremely tricky.
-            */
-            const response = await fetch(`/api/getItemById?id=${item.id}`);
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-            const data = await response.json();
-            // item currently editing
-            state.itemInEdit = data;
-            // add to modal event input box...
-            console.log(data.status);
-            statusEditInput.value = data.status;
-            console.log(data.abnormality);
-            abnormalityEditInput.value = data.abnormality.toString().toLowerCase();
-            customerNameEditInput.value = data.customerName;
-            originEditInput.value = data.origin;
-            destinationEditInput.value = data.destination;
-        });
-        // delete button
-        deleteB.addEventListener("click", async function(){
-            const deleteAlertCheckbox = document.getElementById("deleteAlertCheckbox");
-            // console.log(deleteAlertCheckbox);
-            if (!deleteAlertCheckbox.checked){
-                const confirmation = confirm("Are you sure you want to delete this item? This action cannot be recalled.");
-                if (!confirmation){return;}
-            }
-
-            const row = this.closest("tr");
-            if (row){row.remove();}
-            const param = new URLSearchParams({
-                id: item.id
-            });
-            const response = await fetch(`/api/deleteItemById?${param}`, {
-                method: "DELETE"
-            });
-            if (!response.ok){console.error(`Request failed with status: ${response.status}`);}
-
-        });
-        // more button
-        infoB.addEventListener("click", async function(){
-            alert("Still developing...")
-        });
-    }
+    loadItems();
 });
-

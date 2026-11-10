@@ -1,6 +1,6 @@
 package com.jim.storage;
 
-import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.ListCrudRepository;
 
-public interface ItemRepository extends CrudRepository<Item,Long> {
+public interface ItemRepository extends ListCrudRepository<Item, Long> {
 }

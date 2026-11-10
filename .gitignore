@@ -1,0 +1,11 @@
+target/
+.DS_Store
+**/.DS_Store
+*.iml
+.idea/
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!example.tfvars
+.env

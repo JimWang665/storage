@@ -1,6 +1,8 @@
 package com.jim.storage;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -13,11 +15,13 @@ import lombok.Setter;
 public class Item {
     @Id
     @Getter
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // MySQL AUTO_INCREMENT: no gaps, no sequence table
     private Long id;
 
+    // Stored as text ("NEW", "CATEGORIZED", ...) so reordering the enum never corrupts old rows.
     @Getter
     @Setter
+    @Enumerated(EnumType.STRING)
     private Status status;
 
     @Getter

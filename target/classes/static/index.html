@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Storage Management System</title>
     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="styles.css">
@@ -9,6 +10,7 @@
 <body>
     <div class="storageContainer">
         <h1>Storage Management</h1>
+        <div id="errorBanner" class="alert alert-danger d-none" role="alert"></div>
         <div class="searchContainer container p-0 my-0 text-black">
             <div class="container p-1 my-1 text-black">
                 <div class="row g-3">
@@ -86,6 +88,7 @@
                     <th style="width:300px">Actions</th>
                 </tr>
             </thead>
+            <tbody id="itemBody"></tbody>
         </table>
     </div>
     <div class="modal" id="editModal">
@@ -123,7 +126,7 @@
 
             <!-- Modal footer -->
             <div class="modal-footer">
-                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" id="modalCloseButton">Close</button>
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" id="editModalCloseButton">Close</button>
             </div>
             </div>
         </div>
@@ -140,12 +143,42 @@
 
             <!-- Modal body -->
             <div class="modal-body">
-                <div class="editCursor" id="guideText"></div>
+                <div class="editCursor" id="guideText">
+                    <h5>Adding Items</h5>
+                    <p>
+                        To add an item, fill in the following input boxes: <strong>Customer Name</strong>,
+                        <strong>Origin</strong>, and <strong>Destination</strong>. Do not enter or select
+                        anything in the other three input boxes, as they are auto-generated. Then click the
+                        <strong>'Add Item'</strong> button.
+                    </p>
+
+                    <h5>Searching</h5>
+                    <p>
+                        To search for items, enter your criteria into any or all input boxes and click
+                        the <strong>'Search'</strong> button. Text fields match any item that contains your text
+                        (ignoring upper/lower case). Leaving a field empty means the system won't filter
+                        based on that attribute.
+                    </p>
+
+                    <h5>Clearing Inputs</h5>
+                    <p>
+                        Click the <strong>'Clear Search'</strong> button to reset all inputs and remove search filters.
+                    </p>
+
+                    <h5>Managing Items</h5>
+                    <p>
+                        Each item in the table comes with two actions:
+                    </p>
+                    <ul>
+                        <li><strong>Edit</strong>: Click to open a pop-up window. Make changes and click <strong>'Save'</strong>.</li>
+                        <li><strong>Delete</strong>: Click to permanently remove the item.</li>
+                    </ul>
+                </div>
             </div>
 
             <!-- Modal footer -->
             <div class="modal-footer">
-                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" id="modalCloseButton">Close</button>
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" id="guideModalCloseButton">Close</button>
             </div>
             </div>
         </div>
