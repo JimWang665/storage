@@ -38,7 +38,8 @@ if (-not $token) { throw "Could not get an ECR login token (try 'aws login' agai
 $dockerCfg = Join-Path $env:TEMP "docker-ecr-config"
 if (Test-Path $dockerCfg) { Remove-Item -Recurse -Force $dockerCfg }
 New-Item -ItemType Directory -Force $dockerCfg | Out-Null
-Set-Content -Path (Join-Path $dockerCfg "config.json") -Value "{}" -Encoding ascii
+# A placeholder "auths" entry stops Docker from auto-selecting the Windows credential store.
+Set-Content -Path (Join-Path $dockerCfg "config.json") -Value '{"auths":{"placeholder.invalid":{}}}' -Encoding ascii
 $env:DOCKER_CONFIG = $dockerCfg
 try {
   docker login --username AWS --password $token $registry
