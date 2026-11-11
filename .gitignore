@@ -9,3 +9,4 @@ target/
 *.tfvars
 !example.tfvars
 .env
+*.tfplan

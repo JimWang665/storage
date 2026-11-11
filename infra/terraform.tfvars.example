@@ -1,0 +1,3 @@
+# Copy to terraform.tfvars (which is git-ignored) and edit. Every value here is optional.
+# alert_email = "you@example.com"
+# github_repo = "JimWang665/storage"

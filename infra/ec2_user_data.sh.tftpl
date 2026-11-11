@@ -1,0 +1,62 @@
+#!/bin/bash
+# First-boot setup for the backend server. Runs once as root.
+set -euxo pipefail
+
+dnf install -y docker jq
+systemctl enable --now docker
+
+mkdir -p /opt/storage
+
+# Non-secret settings. Secrets are fetched at deploy time from Secrets Manager / Parameter Store.
+cat > /opt/storage/app.env <<'ENVEOF'
+REGION=${region}
+ECR_REGISTRY=${ecr_registry}
+ECR_REPO_URL=${ecr_repo_url}
+DB_HOST=${db_host}
+DB_PORT=3306
+DB_NAME=${db_name}
+DB_SECRET_ARN=${db_secret_arn}
+ORIGIN_PARAM=${origin_param}
+LOG_GROUP=${log_group}
+ENVEOF
+
+# Deploy script. GitHub Actions runs it through AWS Systems Manager (no SSH): deploy.sh <image-tag>
+cat > /opt/storage/deploy.sh <<'DEPLOYEOF'
+#!/bin/bash
+set -euo pipefail
+export HOME=/root
+. /opt/storage/app.env
+TAG="$1"
+
+aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+docker pull "$ECR_REPO_URL:$TAG"
+
+SECRET_JSON=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id "$DB_SECRET_ARN" --query SecretString --output text)
+export DB_USERNAME=$(echo "$SECRET_JSON" | jq -r .username)
+export DB_PASSWORD=$(echo "$SECRET_JSON" | jq -r .password)
+export ORIGIN_VERIFY=$(aws ssm get-parameter --region "$REGION" --name "$ORIGIN_PARAM" --with-decryption --query Parameter.Value --output text)
+export DB_URL="jdbc:mysql://$DB_HOST:$DB_PORT/$DB_NAME?sslMode=REQUIRED"
+
+docker rm -f storage 2>/dev/null || true
+docker run -d --name storage --restart unless-stopped -p 80:8080 \
+  -e DB_URL -e DB_USERNAME -e DB_PASSWORD -e ORIGIN_VERIFY \
+  -e DELETE_ALL_ENABLED=false \
+  --log-driver awslogs \
+  --log-opt awslogs-region="$REGION" \
+  --log-opt awslogs-group="$LOG_GROUP" \
+  --log-opt awslogs-stream=backend \
+  "$ECR_REPO_URL:$TAG"
+
+# Wait until the app answers its health check (it needs the database to be reachable).
+for i in $(seq 1 40); do
+  if curl -fsS http://localhost/actuator/health > /dev/null 2>&1; then
+    echo "healthy: $TAG"
+    exit 0
+  fi
+  sleep 5
+done
+echo "health check FAILED for $TAG"
+docker logs --tail 50 storage || true
+exit 1
+DEPLOYEOF
+chmod 700 /opt/storage/deploy.sh
